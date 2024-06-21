@@ -1,0 +1,47 @@
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+package-dir = "src"
+
+[project]
+name = "brine_eos"
+version = "0.1.0"
+description = "Sampler for correlations for a H2O–NaCl brine system"
+keywords = ["vtk sampler", "H2O–NaCl", "geothermal fluid"]
+readme = "README.md"
+authors = [
+    {name = "Omar Duran Developer", email = "omar.duran@uib.no"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Build Tools",
+]
+requires-python = ">=3.11, <4"
+
+[project.urls]
+Homepage = "https://github.com/OmarDuran/brine_eos/tree/main"
+"Bug Reports" = "https://github.com/OmarDuran/brine_eos/issues"
+Source = "https://github.com/OmarDuran/brine_eos/tree/main"
+
+[project.optional-dependencies]
+dev = [
+    "check-manifest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+
+test = [
+    "pytest",
+]
+
+
+[project.scripts]
+brine_eos = "brine_eos:main"
