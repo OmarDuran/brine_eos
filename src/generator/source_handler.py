@@ -1,15 +1,16 @@
 from globals import source_url
+from globals import source_name
 import requests
 import subprocess
 import os
 from pathlib import Path
 
-def retrieve_and_rename_source(file_name: str = "saltwatereos-1.7.0.zip"):
+def retrieve_and_rename_source(file_name: str = source_name):
     """
     Retrieve the zip File
     """
     response = requests.get(source_url)
-    with open(file_name, 'wb') as file:
+    with open(file_name+'.zip', 'wb') as file:
         file.write(response.content)
 
 def unpack_source(file_name, folder_name: str = 'extracted_source'):
@@ -17,7 +18,7 @@ def unpack_source(file_name, folder_name: str = 'extracted_source'):
     Unpack source
     """
     subprocess.run(['mkdir', '-p', folder_name], check=True)
-    subprocess.run(['unzip', '-o', file_name, '-d', folder_name], check=True)
+    subprocess.run(['unzip', '-o', file_name+'.zip', '-d', folder_name], check=True)
 
 def run_command(command, cwd=None):
     """
@@ -30,8 +31,11 @@ def run_command(command, cwd=None):
         raise Exception(f"Command failed with return code {result.returncode}")
 
 def build_library(folder_name: str = 'extracted_source'):
+    """
+    build library from source
+    """
     path = Path(folder_name)
-    library_folder = path / 'saltwatereos-1.7.0' / "Library"
+    library_folder = path / source_name / "Library"
     library_dir = str(library_folder.absolute())
     # Define directories
     os.path.abspath(library_dir)  # Directory containing the C++ source and CMakeLists.txt
@@ -39,9 +43,11 @@ def build_library(folder_name: str = 'extracted_source'):
     run_command("sh ./build.sh", cwd=library_dir)
 
 def compile_cli_source(folder_name: str = 'extracted_source'):
-
+    """
+    compile cli application from source
+    """
     path = Path(folder_name)
-    build_folder = path / 'saltwatereos-1.7.0' / "commandline" / "build"
+    build_folder = path / source_name / "commandline" / "build"
     build_folder.mkdir(parents=True, exist_ok=True)
 
     build_dir = str(build_folder.absolute())
@@ -57,7 +63,7 @@ def compile_cli_source(folder_name: str = 'extracted_source'):
     # Run make to build the project
     run_command("make", cwd=build_dir)
 
-def compile_library_and_cli_source(file_name: str = "saltwatereos-1.7.0.zip", destination_folder: str = 'extracted_source'):
+def compile_library_and_cli_source(file_name: str = source_name, destination_folder: str = 'extracted_source'):
 
     # Step 1: Download the Zip File
     retrieve_and_rename_source(file_name)
@@ -70,3 +76,16 @@ def compile_library_and_cli_source(file_name: str = "saltwatereos-1.7.0.zip", de
 
     # Step 4: compile the cli application
     compile_cli_source(destination_folder)
+
+def move_cli(origin_folder: str = 'extracted_source', destination_folder: str = 'cli_' + source_name):
+    """
+    move cli application to cli folder
+    """
+    path = Path(origin_folder)
+    build_folder = path / source_name / "commandline" / "build"
+    build_dir = str(build_folder.absolute())
+
+    destination_folder = Path(destination_folder)
+    destination_folder.mkdir(parents=True, exist_ok=True)
+    command = 'mv ' + build_dir + "/swEOS" + " " + str(destination_folder.absolute())
+    run_command(command,cwd=build_dir)

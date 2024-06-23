@@ -1,2 +1,10 @@
 # source code
-source_url = 'https://zenodo.org/records/4603878/files/saltwatereos-1.7.0.zip?download=1'
+
+# # original source
+# source_url = 'https://github.com/zguoch/saltwatereos/archive/refs/heads/master.zip'
+# source_name = 'saltwatereos-master'
+
+# modified source
+source_url = 'https://github.com/OmarDuran/saltwatereos/archive/refs/heads/enhanced_computations.zip'
+source_name = 'saltwatereos-enhanced_computations'
+
