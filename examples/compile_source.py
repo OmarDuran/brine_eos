@@ -10,7 +10,5 @@ except Exception as e:
     print(f"Error: {e} - An unexpected error occurred.")
 finally:
     # invoke the cli application
-    prefix = './cli_' + source_name + "/"
+    prefix = "./cli_" + source_name + "/"
     run_command(prefix + "swEOS -help")
-
-

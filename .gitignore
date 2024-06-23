@@ -177,5 +177,5 @@ nbproject/
 *.vtk
 
 examples/extracted_source/*
-scripts/extracted_source/*
+src/scripts/extracted_source/*
 *swEOS
