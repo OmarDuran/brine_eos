@@ -4,7 +4,7 @@ from globals import source_name
 from globals import requested_fields
 from generator.source_handler import run_command
 
-# name association for vtk files
+# Name association for vtk files
 short_hand_name_map = {
     'saltwatereos-master': 'original',
     'saltwatereos-enhanced_computations': 'modified',
