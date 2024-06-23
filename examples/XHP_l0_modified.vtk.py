@@ -1,11 +1,11 @@
 from paraview.simple import *
-xHvtk = LegacyVTKReader(FileNames=['XHP_saltwatereos-master.vtk'])
+xHvtk = LegacyVTKReader(FileNames=['XHP_l0_modified.vtk'])
 renderView1 = GetActiveViewOrCreate('RenderView')
 xHvtkDisplay = Show(xHvtk, renderView1)
 xHvtkDisplay.Representation = 'Surface'
 renderView1.AxesGrid.Visibility = 1
-xHvtkDisplay.Scale = [1, 8.62069e-05, 0.000555556]
-renderView1.AxesGrid.DataScale = [1, 8.62069e-05, 0.000555556]
+xHvtkDisplay.Scale = [1, 6.89655e-05, 0.0005]
+renderView1.AxesGrid.DataScale = [1, 6.89655e-05, 0.0005]
 renderView1.AxesGrid.DataBoundsInflateFactor = 0
 renderView1.AxesGrid.XTitle = 'Salinity'
 renderView1.AxesGrid.YTitle = 'Enthalpy (kJ/kg)'

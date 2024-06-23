@@ -1,5 +1,5 @@
 from paraview.simple import *
-xHvtk = LegacyVTKReader(FileNames=['XHP_saltwatereos-enhanced_computations.vtk'])
+xHvtk = LegacyVTKReader(FileNames=['XHP_l1_modified.vtk'])
 renderView1 = GetActiveViewOrCreate('RenderView')
 xHvtkDisplay = Show(xHvtk, renderView1)
 xHvtkDisplay.Representation = 'Surface'

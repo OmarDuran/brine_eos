@@ -2,11 +2,10 @@ import time
 
 import numpy as np
 import pyvista
-import ClassifyPoints as cp
+import classify_points as cp
 
 
-class DriesnerBrineOBL:
-    # Operator-based linearization (OBL) for Driesner correlations
+class VTKSampler:
 
     def __init__(self, file_name, extended_q=True):
         self.file_name = file_name

@@ -1,10 +1,9 @@
 import numpy as np
 import pyvista as pv
-from DriesnerBrineOBL import DriesnerBrineOBL
+from vtk_sampler import VTKSampler
 import matplotlib.pyplot as plt
 
 file_name = "sample_with_gradients.vtk"
-
 
 def f(x, y, z):
     xs = 0.75 * x**4 - x**2 + 0.3
@@ -48,7 +47,7 @@ for field in fields:
 grid.save(file_name, binary=True)
 
 file_name = file_name
-sampled_obj = DriesnerBrineOBL(file_name)
+sampled_obj = VTKSampler(file_name)
 
 # sample and plot
 dxi = 0.001

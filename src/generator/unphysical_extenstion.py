@@ -1,6 +1,5 @@
 import numpy as np
 import pyvista
-import vtk
 import time
 
 level = 0
