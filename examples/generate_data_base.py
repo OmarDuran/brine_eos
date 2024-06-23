@@ -1,5 +1,4 @@
 from globals import source_name
-from scripts.build_cli_app import build_cli_application
 from generator.source_handler import run_command
 
 # name association for vtk files
