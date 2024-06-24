@@ -72,73 +72,76 @@ def generate_vtk_from_function(f, vtk_file_name):
 # generate a vtk file with a external function values
 generate_vtk_from_function(f, vtk_file_name)
 
-# step 1:
-# create VTKSampler object from the generated vtk file
-vtk_file_name = "function_with_gradient.vtk"
-taylor_extended = True
-sampler_obj = VTKSampler(vtk_file_name, taylor_extended)
+# step 2: 
+for taylor_extended in [True, False]:
+    # create VTKSampler object from the generated vtk file
+    vtk_file_name = "function_with_gradient.vtk"
+    sampler_obj = VTKSampler(vtk_file_name, taylor_extended)
 
-# step 3:
-# Compare exact and interpolated function at z_val
-z_val = 0.0
+    # step 3:
+    # Compare exact and interpolated function at z_val
+    z_val = 0.0
 
-# Evaluate function in cartesian manner
-nc = 30
-nc_x = nc
-nc_y = nc
-dx = float(2.0 / nc_x)
-dy = float(2.0 / nc_y)
-x = np.linspace(-1.0, 1.0, nc_x + 1)
-y = np.linspace(0.0, 1.0, nc_y + 1)
-gxv, gyv = np.meshgrid(x, y)
-gzv = z_val * np.ones_like(x)
-fe_v = f(gxv, gyv, gzv)
+    # Evaluate function in cartesian manner
+    nc = 30
+    nc_x = nc
+    nc_y = nc
+    dx = float(2.0 / nc_x)
+    dy = float(2.0 / nc_y)
+    x = np.linspace(-1.0, 1.0, nc_x + 1)
+    y = np.linspace(0.0, 1.0, nc_y + 1)
+    gxv, gyv = np.meshgrid(x, y)
+    gzv = z_val * np.ones_like(x)
+    fe_v = f(gxv, gyv, gzv)
 
 
-# plot for exact function
-surf_1 = ax.plot_surface(
-    gxv,
-    gyv,
-    fe_v,
-    rstride=1,
-    cstride=1,
-    cmap=cm.coolwarm,
-    linewidth=0,
-    antialiased=False,
-)
+    # plot for exact function
+    surf_1 = ax.plot_surface(
+        gxv,
+        gyv,
+        fe_v,
+        rstride=1,
+        cstride=1,
+        cmap=cm.coolwarm,
+        linewidth=0,
+        antialiased=False,
+    )
 
-# Generate data for sampling
-dxi = 0.1
-xi = np.arange(-1.1, 0.0 + dxi, dxi)
-eta = np.arange(-1.1, 1.1 + dxi, dxi)
-pxv = xi
-pyv = eta
-pxv, pyv = np.meshgrid(pxv, pyv)
-pxv_shape = pxv.shape
-pzv = z_val * np.ones_like(pxv)
+    # Generate data for sampling
+    dxi = 0.1
+    xi = np.arange(-1.1, 0.0 + dxi, dxi)
+    eta = np.arange(-1.1, 1.1 + dxi, dxi)
+    pxv = xi
+    pyv = eta
+    pxv, pyv = np.meshgrid(pxv, pyv)
+    pxv_shape = pxv.shape
+    pzv = z_val * np.ones_like(pxv)
 
-# Perform sampling
-par_points = np.array((pxv.flatten(), pyv.flatten(), pzv.flatten())).T
-sampler_obj.sample_at(par_points)
-fv = sampler_obj.sampled_could.point_data["f"].reshape(pxv_shape)
+    # Perform sampling
+    par_points = np.array((pxv.flatten(), pyv.flatten(), pzv.flatten())).T
+    sampler_obj.sample_at(par_points)
+    fv = sampler_obj.sampled_could.point_data["f"].reshape(pxv_shape)
 
-# plot for interpolated function
-norm = plt.Normalize(fe_v.min(), fv.max())
-face_colors = cm.coolwarm(np.ones_like(norm(fv)))
-rcount, ccount, _ = face_colors.shape
-surf_2 = ax.plot_surface(
-    pxv,
-    pyv,
-    fv,
-    rcount=rcount,
-    ccount=ccount,
-    facecolors=face_colors,
-    shade=False,
-    linewidth=1.0,
-)
-surf_2.set_facecolor((0, 0, 0, 0))
+    # plot for interpolated function
+    norm = plt.Normalize(fe_v.min(), fv.max())
+    face_colors = cm.coolwarm(np.ones_like(norm(fv)))
+    rcount, ccount, _ = face_colors.shape
+    surf_2 = ax.plot_surface(
+        pxv,
+        pyv,
+        fv,
+        rcount=rcount,
+        ccount=ccount,
+        facecolors=face_colors,
+        shade=False,
+        linewidth=1.0,
+    )
+    surf_2.set_facecolor((0, 0, 0, 0))
 
-# compose figure name and save it
-fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d.png")
-plt.savefig(fig_temp)
-plt.show()
+    # compose figure name and save it
+    if taylor_extended:
+        fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d_taylor_extended.png")
+    else:
+        fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d.png")
+    plt.savefig(fig_temp)
+    plt.show()
