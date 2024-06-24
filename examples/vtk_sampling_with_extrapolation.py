@@ -4,15 +4,6 @@ from sampler.vtk_sampler import VTKSampler
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-fig = plt.figure(figsize=plt.figaspect(1.0))
-ax = fig.add_subplot(111, projection="3d")
-ax.set_zlim(-0.025, +0.025)
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-ax.set_zlabel("Function value")
-# Set the view angle (elevation, azimuth)
-ax.view_init(elev=50, azim=-60)
-
 vtk_file_name = "function_with_gradient.vtk"
 folder_name = "sampler_figures_3d"
 import os
@@ -74,6 +65,15 @@ generate_vtk_from_function(f, vtk_file_name)
 
 # step 2: 
 for taylor_extended in [True, False]:
+    fig = plt.figure(figsize=plt.figaspect(1.0))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_zlim(-0.025, +0.025)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("Function value")
+    # Set the view angle (elevation, azimuth)
+    ax.view_init(elev=50, azim=-60)
+
     # create VTKSampler object from the generated vtk file
     vtk_file_name = "function_with_gradient.vtk"
     sampler_obj = VTKSampler(vtk_file_name, taylor_extended)
@@ -109,8 +109,8 @@ for taylor_extended in [True, False]:
 
     # Generate data for sampling
     dxi = 0.1
-    xi = np.arange(-1.1, 0.0 + dxi, dxi)
-    eta = np.arange(-1.1, 1.1 + dxi, dxi)
+    xi = np.arange(-1.15, 0.0 + dxi, dxi)
+    eta = np.arange(-1.15, 1.15 + dxi, dxi)
     pxv = xi
     pyv = eta
     pxv, pyv = np.meshgrid(pxv, pyv)
@@ -144,4 +144,4 @@ for taylor_extended in [True, False]:
     else:
         fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d.png")
     plt.savefig(fig_temp)
-    plt.show()
+    plt.clf()

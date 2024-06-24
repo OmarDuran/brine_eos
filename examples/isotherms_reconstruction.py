@@ -74,9 +74,9 @@ def Find_Hm(sampler_obj, T_spec, z, p):
 
 to_K = lambda T: T + 273.15
 T_spec_to_files = {
-    325: "TD_LV_T_325.txt",
-    370: "TD_LV_T_370.txt",
-    400: "TD_LV_T_400.txt",
+    325: "sowat_input/TD_LV_T_325.txt",
+    370: "sowat_input/TD_LV_T_370.txt",
+    400: "sowat_input/TD_LV_T_400.txt",
 }
 
 for level in [0, 1, 2]:
