@@ -12,14 +12,16 @@ __phase_state_map = {
 
 
 def __retrieve_line_idx_with_pattern(
-    pattern: str ,
+    pattern: str,
     origin_folder: str = "apple_script/",
     origin_file_name: str = "raw_data_sowat_ptx.txt",
 ):
     awk_command = (
         "awk -f "
         + origin_folder
-        + '/scan_line_idxs.awk ' + pattern + " "
+        + "/scan_line_idxs.awk "
+        + pattern
+        + " "
         + origin_folder
         + origin_file_name
         + " > lines_indices.txt"
@@ -78,8 +80,8 @@ def __extract_properties(states, phase_state, line_idx, content):
         S_h = 0.0
 
         rho = rho_l  # same as rho_f(np.array([rho_l]), np.array([S_l]))
-        rho_v = rho  # extended density
-        rho_h = rho  # extended density
+        rho_v = 0.0 * rho  # extended density
+        rho_h = 0.0 * rho  # extended density
         props = [rho, rho_l, rho_v, rho_h, Xl, Xv, S_l, S_v, S_h]
         return props
     elif phase_state == "L+H":  # essentially two phase
@@ -101,7 +103,7 @@ def __extract_properties(states, phase_state, line_idx, content):
         S_h = 1.0 - s_a(rho_l, rho_h, Xl, Xh, z)
 
         rho = rho_f(np.array([rho_l, rho_h]), np.array([S_l, S_h]))
-        rho_v = rho  # extended density
+        rho_v = 0.0 * rho  # extended density
 
         props = [rho, rho_l, rho_v, rho_h, Xl, Xv, S_l, S_v, S_h]
         return props
@@ -122,7 +124,7 @@ def __extract_properties(states, phase_state, line_idx, content):
         S_h = 0.0
 
         rho = rho_f(np.array([rho_l, rho_v]), np.array([S_l, S_v]))
-        rho_h = rho  # extended density
+        rho_h = 0.0 *rho  # extended density
 
         props = [rho, rho_l, rho_v, rho_h, Xl, Xv, S_l, S_v, S_h]
         return props
@@ -143,7 +145,7 @@ def __extract_properties(states, phase_state, line_idx, content):
         S_h = 1.0 - s_a(rho_v, rho_h, Xv, Xh, z)
 
         rho = rho_f(np.array([rho_v, rho_h]), np.array([S_v, S_h]))
-        rho_l = rho  # extended density
+        rho_l = 0.0 * rho  # extended density
         props = [rho, rho_l, rho_v, rho_h, Xl, Xv, S_l, S_v, S_h]
         return props
     else:
@@ -160,7 +162,9 @@ def harvest_data(
     origin_file_name: str = "/raw_data_sowat_ptx.txt"
 
     pattern = '"Please enter T in"'
-    line_indices = __retrieve_line_idx_with_pattern(pattern, origin_folder, origin_file_name)
+    line_indices = __retrieve_line_idx_with_pattern(
+        pattern, origin_folder, origin_file_name
+    )
 
     extracted_data = np.empty((0, 12), float)
     with open(origin_folder + origin_file_name, "r") as file:
@@ -168,17 +172,21 @@ def harvest_data(
         content = file.readlines()
 
         for line_idx in line_indices:
-            print("line_idx: ", line_idx)
-            if line_idx == 46788:
-                continue
-            states = __extract_PTZ_states(line_idx, content)
-            phase_state = __extract_phase_state(line_idx, content)
-            properties = __extract_properties(states, phase_state, line_idx, content)
-            chunk = states + properties
-            extracted_data = np.append(extracted_data, np.array([chunk]), axis=0)
+            try:
+                states = __extract_PTZ_states(line_idx, content)
+                # skip pressures below 5 bar (Zhikui Guo’s code only evaluates for P >= 5 [bar])
+                if states[0] < 5.0:
+                    continue
+                phase_state = __extract_phase_state(line_idx, content)
+                properties = __extract_properties(states, phase_state, line_idx, content)
+                chunk = states + properties
+                extracted_data = np.append(extracted_data, np.array([chunk]), axis=0)
+            except Exception as e:
+                print("line_idx: ", line_idx)
+                print(f"An unexpected error occurred: {e}")
 
-
-    normal_header = "P [bar], T [C],  z_NaCl ,  rho [Kg/m3], rho_l [Kg/m3], rho_v [Kg/m3], rho_h, Xl, Xv, S_l, S_v, S_h"
+    normal_header = "P [bar], T [C],  z_NaCl ,  rho [Kg/m3], rho_l [Kg/m3], " \
+                    "rho_v [Kg/m3], rho_h  [Kg/m3], Xl, Xv, S_l, S_v, S_h"
     np.savetxt(
         destination_file_name,
         extracted_data,
