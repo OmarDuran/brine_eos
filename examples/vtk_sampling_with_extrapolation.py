@@ -63,7 +63,7 @@ def generate_vtk_from_function(f, vtk_file_name):
 # generate a vtk file with a external function values
 generate_vtk_from_function(f, vtk_file_name)
 
-# step 2: 
+# step 2:
 for taylor_extended in [True, False]:
     fig = plt.figure(figsize=plt.figaspect(1.0))
     ax = fig.add_subplot(111, projection="3d")
@@ -93,7 +93,6 @@ for taylor_extended in [True, False]:
     gxv, gyv = np.meshgrid(x, y)
     gzv = z_val * np.ones_like(x)
     fe_v = f(gxv, gyv, gzv)
-
 
     # plot for exact function
     surf_1 = ax.plot_surface(
@@ -140,7 +139,9 @@ for taylor_extended in [True, False]:
 
     # compose figure name and save it
     if taylor_extended:
-        fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d_taylor_extended.png")
+        fig_temp = compose_figure_name(
+            folder_name, z_val, "_smooth_function_3d_taylor_extended.png"
+        )
     else:
         fig_temp = compose_figure_name(folder_name, z_val, "_smooth_function_3d.png")
     plt.savefig(fig_temp)

@@ -124,7 +124,7 @@ def __extract_properties(states, phase_state, line_idx, content):
         S_h = 0.0
 
         rho = rho_f(np.array([rho_l, rho_v]), np.array([S_l, S_v]))
-        rho_h = 0.0 *rho  # extended density
+        rho_h = 0.0 * rho  # extended density
 
         props = [rho, rho_l, rho_v, rho_h, Xl, Xv, S_l, S_v, S_h]
         return props
@@ -178,15 +178,19 @@ def harvest_data(
                 if states[0] < 5.0:
                     continue
                 phase_state = __extract_phase_state(line_idx, content)
-                properties = __extract_properties(states, phase_state, line_idx, content)
+                properties = __extract_properties(
+                    states, phase_state, line_idx, content
+                )
                 chunk = states + properties
                 extracted_data = np.append(extracted_data, np.array([chunk]), axis=0)
             except Exception as e:
                 print("line_idx: ", line_idx)
                 print(f"An unexpected error occurred: {e}")
 
-    normal_header = "P [bar], T [C],  z_NaCl ,  rho [Kg/m3], rho_l [Kg/m3], " \
-                    "rho_v [Kg/m3], rho_h  [Kg/m3], Xl, Xv, S_l, S_v, S_h"
+    normal_header = (
+        "P [bar], T [C],  z_NaCl ,  rho [Kg/m3], rho_l [Kg/m3], "
+        "rho_v [Kg/m3], rho_h  [Kg/m3], Xl, Xv, S_l, S_v, S_h"
+    )
     np.savetxt(
         destination_file_name,
         extracted_data,
