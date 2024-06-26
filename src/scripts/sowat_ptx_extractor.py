@@ -156,7 +156,7 @@ def harvest_data(
     destination_file_name: str = "extracted_data_sowat_ptx.txt",
 ):
 
-    # search for the persistent raw file (raw_data_sowat_ptx.txt)
+    # load the persistent file (raw_data_sowat_ptx.txt)
     current_script_directory = Path(__file__).parent
     origin_folder = str(current_script_directory / "apple_script")
     origin_file_name: str = "/raw_data_sowat_ptx.txt"
