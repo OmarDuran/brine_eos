@@ -1,0 +1,6 @@
+numpy
+requests
+pyvista
+black
+pytest
+matplotlib
