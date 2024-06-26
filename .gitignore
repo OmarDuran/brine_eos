@@ -179,6 +179,6 @@ nbproject/
 !requirements.txt
 examples/extracted_source/*
 src/scripts/extracted_source/*
-!src/scripts/apple_script/raw_output_sampled_sowat_ptx.txt
+!src/scripts/apple_script/raw_data_sowat_ptx.txt
 *swEOS
 
