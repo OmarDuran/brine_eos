@@ -3,4 +3,5 @@ requests
 pyvista
 black
 pytest
+thermo
 matplotlib
