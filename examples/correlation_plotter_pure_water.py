@@ -10,76 +10,119 @@ import os
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
+level = 2
+file_name = 'XHP_l'+str(level)+'_iapws_modified.vtk'
+brine_sampler_phz = VTKSampler(file_name)
+brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
+
 # triple point of water
 T_ref = 273.16
 P_ref = 611.657
-MW_H2O = iapws_constants.MWs[0] * 1.0e-3 # [Kg/mol]
+MW_H2O = iapws_constants.MWs[0] # [Kg/mol]
 liquid = IAPWS95Liquid(T=T_ref, P=P_ref, zs=[1])
 gas = IAPWS95Gas(T=T_ref, P=P_ref, zs=[1])
 flasher = FlashPureVLS(iapws_constants, iapws_correlations, gas, [liquid], [])
 PT = flasher.flash(P=1e7, T=573.15)
 
-H_mass_vals = np.logspace(np.log10(100.0 * 1e3), np.log10(3000.0 * 1e3), 20) # [J/Kg]
-P_vals = np.logspace(np.log10(1.0 * 1e3), np.log10(20000.0 * 1e3), 20) # [MPa]
-P_vals = np.logspace(np.log10(1.1 * 1e6), np.log10(59.8 * 1e6), 20) # [MPa]
+H_mass_vals = np.logspace(np.log10(1.0), np.log10(2.8), 30) # [MJ/Kg]
+P_vals = np.logspace(np.log10(1.1), np.log10(20.0), 30) # [MPa]
+
+def plot_variable(data, variable_name, title):
+
+    z_label = {
+        'Density': 'Mixture density [Kg/m3]',
+        'Temperature': 'Temperature [K]',
+        'Density difference': 'Mixture density [Kg/m3]',
+        'Temperature difference': 'Temperature [K]'
+    }
+
+    # Example data
+    x = data[:, 0]
+    y = data[:, 1]
+    z = data[:, 2]
+    # z = vtk_T_vals
+
+    # Create log-log plot
+
+    # Create a 3D scatter plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x, y, z, c='r', marker='o')
+
+    ax.set_xlabel('H [MJ/Kg]')
+    ax.set_ylabel('P [MPa]')
+    ax.set_zlabel(z_label[variable_name])
+    plt.title(title)
+
+
+# Density plots
 PH_data = []
-T_isotherm = 300.0 + 273.15
 for H_mass in H_mass_vals:
     for P_val in P_vals:
-        H_val = H_mass * (18.015268*1e-3)  # [J/mol]
-        PH = flasher.flash(P=P_val, H=H_val)
-        PH_data.append([PH.H_mass()*1e-3,PH.P*1e-6, PH.rho_mass()])
+        H_val = H_mass * MW_H2O * (1e3)  # [J/mol]
+        PH = flasher.flash(P=P_val*1.0e6, H=H_val)
+        PH_data.append([PH.H_mass()*1e-6,PH.P*1e-6, PH.rho_mass()])
 PH_data = np.array(PH_data)
 
+h_v = PH_data[:,0].copy()
+p_v = PH_data[:,1].copy()
+Rho_v = PH_data[:,2].copy()
+z_NaCl = np.zeros_like(p_v)
+par_points = np.array((z_NaCl, h_v, p_v)).T
+brine_sampler_phz.sample_at(par_points)
+vtk_rho_vals = brine_sampler_phz.sampled_could.point_data['Rho']
 
-file_name = "XHP_l2_modified.vtk"
-brine_sampler_phz = VTKSampler(file_name)
-brine_sampler_phz.conversion_factors = (1.0, 1.0, 10.0)  # (z,h,p)
+title = 'PH-diagram (IAPWS95)'
+plot_variable(PH_data, 'Density', title)
+plt.savefig(folder_name + '/density_IAPWS95.png')
+plt.clf()
+
+title = 'PH-diagram (VTKSampler)'
+PH_data[:,2] = vtk_rho_vals
+plot_variable(PH_data, 'Density', title)
+plt.savefig(folder_name + '/density_vtk_sampler_l'+str(level)+'.png')
+plt.clf()
+
+Rho_l2_norm = np.linalg.norm(Rho_v - vtk_rho_vals)/np.linalg.norm(Rho_v)
+title = 'Density difference with Rel. L2 norm = ' + str(Rho_l2_norm)
+PH_data[:,2] = Rho_v - vtk_rho_vals
+plot_variable(PH_data, 'Density difference', title)
+plt.savefig(folder_name + '/density_difference_l'+str(level)+'.png')
+plt.clf()
+
+
+# Temperature plots
+PH_data = []
+for H_mass in H_mass_vals:
+    for P_val in P_vals:
+        H_val = H_mass * MW_H2O * (1e3)  # [J/mol]
+        PH = flasher.flash(P=P_val*1.0e6, H=H_val)
+        PH_data.append([PH.H_mass()*1e-6,PH.P*1e-6, PH.T])
+PH_data = np.array(PH_data)
 
 h_v = PH_data[:,0].copy()
 p_v = PH_data[:,1].copy()
 T_v = PH_data[:,2].copy()
-
 z_NaCl = np.zeros_like(p_v)
 par_points = np.array((z_NaCl, h_v, p_v)).T
 brine_sampler_phz.sample_at(par_points)
-vtk_T_vals = brine_sampler_phz.sampled_could.point_data['Rho']
-diff_T_v = T_v - vtk_T_vals
-diff_T_max = np.max(diff_T_v)
-diff_T_min = np.min(diff_T_v)
-diff_T_norm = np.linalg.norm(diff_T_v)
+vtk_T_vals = brine_sampler_phz.sampled_could.point_data['Temperature']
 
-# Example data
-x = PH_data[:,0]
-y = PH_data[:,1]
-z = PH_data[:,2]
-# z = vtk_T_vals
 
-# Create log-log plot
+title = 'PH-diagram (IAPWS95)'
+plot_variable(PH_data, 'Temperature', title)
+plt.savefig(folder_name + '/temperature_IAPWS95.png')
+plt.clf()
 
-# Create a 3D scatter plot
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(x, y, z, c='r', marker='o')
+title = 'PH-diagram (VTKSampler)'
+PH_data[:,2] = vtk_T_vals
+plot_variable(PH_data, 'Temperature', title)
+plt.savefig(folder_name + '/temperature_vtk_sampler_l'+str(level)+'.png')
+plt.clf()
 
-# Set axes to log scale
-# ax.set_xscale('log')
-# ax.set_yscale('log')
-# ax.set_zscale('log')
-
-ax.set_xlabel('H [KJ/Kg]')
-ax.set_ylabel('P [MPa]')
-ax.set_zlabel('Mixture density [Kg/m3]')
-plt.title('PH-diagram (IAPWS95 z_NaCl = 0.0) ')
-
-# # Add labels and title
-# plt.xlabel('H [KJ/Kg]')
-# plt.ylabel('P [MPa]')
-
-#
-# # Show grid
-# plt.grid(True, which="both", ls="--")
-
-# Display the plot
-plt.show()
-aka = 0
+T_l2_norm = np.linalg.norm(T_v - vtk_T_vals)/np.linalg.norm(T_v)
+title = 'Temperature difference with Rel. L2 norm = ' + str(T_l2_norm)
+PH_data[:,2] = T_v - vtk_T_vals
+plot_variable(PH_data, 'Temperature difference', title)
+plt.savefig(folder_name + '/temperature_difference_l'+str(level)+'.png')
+plt.clf()

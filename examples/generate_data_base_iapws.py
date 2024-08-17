@@ -13,11 +13,16 @@ liquid = IAPWS95Liquid(T=T_ref, P=P_ref, zs=[1])
 gas = IAPWS95Gas(T=T_ref, P=P_ref, zs=[1])
 flasher = FlashPureVLS(iapws_constants, iapws_correlations, gas, [liquid], [])
 
-# H_mass_vals = np.logspace(np.log10(100.0 * 1e3), np.log10(2800.0 * 1e3), 30) # [J/Kg]
-# P_vals = np.logspace(np.log10(1.1 * 1e6), np.log10(60.0 * 1e6), 30) # [MPa]
 
-H_vals = np.linspace(0.1 * MW_H2O, 2.8 * MW_H2O, 10) # [J/Kg]
-P_vals = np.linspace(1.1, 60.0, 10) # [MPa]
+ref_data={
+    0: (75,75),
+    1: (150,150),
+    2: (300,300),
+}
+
+level = 2
+H_vals = np.linspace(0.1, 2.8, ref_data[level][0]) # [KJ/Kg]
+P_vals = np.linspace(1.1, 20.0, ref_data[level][1]) # [MPa]
 
 x = np.array([0.0,1.0])        # 1D array of shape (3,)
 y = H_vals          # 1D array of shape (2,)
@@ -26,14 +31,16 @@ z = P_vals     # 1D array of shape (4,)
 # Create the meshgrid
 X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
 
-H_scale = 1.0e-3
+H_scale = 1.0e-6
 
+def S_l(rho, rho_l, rho_v):
+    s_v = (rho - rho_v) / (rho_l - rho_v)
+    return s_v
 # Density plots
 n_data = 13
 flasher_data = np.empty((0, n_data), float)
 for z_val, H_val, P_val in zip(X.ravel(), Y.ravel(), Z.ravel()):
-    # flasher.flash_phase_boundary(zs=[1], P=P_val * 1e6, H=H_val * 1e3)
-    PH = flasher.flash(P=P_val*1e6, H=H_val*1e3)
+    PH = flasher.flash(P=P_val*1e6, H=H_val*MW_H2O*1e3)
     if PH.phase_count == 1:
         if PH.phase == 'L':
             data = [
@@ -77,8 +84,8 @@ for z_val, H_val, P_val in zip(X.ravel(), Y.ravel(), Z.ravel()):
             PH.rho_mass(),
             PH.phases[1].rho_mass(),
             PH.phases[0].rho_mass(),
-            PH.betas_mass_states[1],
-            PH.betas_mass_states[0],
+            S_l(PH.rho_mass(), PH.phases[1].rho_mass(), PH.phases[0].rho_mass()),
+            1.0 - S_l(PH.rho_mass(), PH.phases[1].rho_mass(), PH.phases[0].rho_mass()),
             PH.T,
             0.0,
             0.0,
@@ -158,11 +165,10 @@ mesh.point_data['mu_l'] = flasher_data[:, fields['mu_l']]
 mesh.point_data['mu_v'] = flasher_data[:, fields['mu_v']]
 
 # Save the mesh to a file
-meshio.write("XHP_l0_iapws.vtk", mesh)
+file_name = 'XHP_l'+str(level)+'_iapws_modified.vtk'
 
-untouched_vtk_file = (
-    'XHP_l0_iapws.vtk'
-)
+meshio.write(file_name, mesh)
+untouched_vtk_file = file_name
 print(" Computing gradients for file: ", untouched_vtk_file)
 # include gradients
 tb = time.time()
@@ -183,9 +189,6 @@ for field in requested_fields:
 for field in requested_fields:
     xhp_space.point_data.set_vectors(gradients[field], "grad_" + field)
 
-vtk_file_with_gradients = (
-    'XHP_l0_iapws_modified.vtk'
-)
-xhp_space.save(vtk_file_with_gradients, binary=True)
+xhp_space.save(file_name, binary=True)
 te = time.time()
 print("Computing gradients on requested fields: Elapsed time: ", te - tb)
