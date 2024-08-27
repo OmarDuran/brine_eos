@@ -51,3 +51,40 @@ else:
         "mu_l",
         "mu_v",
     ]
+
+# fields to smooth
+if original_source_q:
+    # original source
+    fields_to_smooth = [
+        "H_l",
+        "H_v",
+        "H_h",
+        "Rho",
+        "Rho_l",
+        "Rho_v",
+        "Rho_h",
+        "Temperature",
+        "Xl",
+        "Xv",
+        "mu_l",
+        "mu_v",
+    ]
+else:
+    # modified source
+    fields_to_smooth = [
+        "H_l",
+        "H_v",
+        "H_h",
+        "Rho",
+        "Rho_l",
+        "Rho_v",
+        "Rho_h",
+        "S_l",
+        "S_v",
+        "S_h",
+        "Temperature",
+        "Xl",
+        "Xv",
+        "mu_l",
+        "mu_v",
+    ]

@@ -3,6 +3,8 @@ import numpy as np
 import pyvista as pv
 import meshio
 from globals import requested_fields
+from globals import fields_to_smooth
+from scipy.ndimage import gaussian_filter
 from thermo import FlashPureVLS, IAPWS95Liquid, IAPWS95Gas, iapws_constants, iapws_correlations
 
 # triple point of water
@@ -20,9 +22,9 @@ ref_data={
     2: (300,300),
 }
 
-level = 2
-H_vals = np.linspace(0.1, 2.8, ref_data[level][0]) # [KJ/Kg]
-P_vals = np.linspace(1.1, 20.0, ref_data[level][1]) # [MPa]
+level = 1
+H_vals = np.linspace(10, 3000.0, ref_data[level][0]) # [KJ/Kg]
+P_vals = np.linspace(1.0, 50.0, ref_data[level][1]) # [MPa]
 
 x = np.array([0.0,1.0])        # 1D array of shape (3,)
 y = H_vals          # 1D array of shape (2,)
@@ -31,7 +33,7 @@ z = P_vals     # 1D array of shape (4,)
 # Create the meshgrid
 X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
 
-H_scale = 1.0e-6
+H_scale = 1.0 #1.0e-6
 
 def S_l(rho, rho_l, rho_v):
     s_v = (rho - rho_v) / (rho_l - rho_v)
@@ -40,7 +42,7 @@ def S_l(rho, rho_l, rho_v):
 n_data = 13
 flasher_data = np.empty((0, n_data), float)
 for z_val, H_val, P_val in zip(X.ravel(), Y.ravel(), Z.ravel()):
-    PH = flasher.flash(P=P_val*1e6, H=H_val*MW_H2O*1e3)
+    PH = flasher.flash(P=P_val*1e5, H=H_val*MW_H2O)
     if PH.phase_count == 1:
         if PH.phase == 'L':
             data = [
@@ -84,8 +86,10 @@ for z_val, H_val, P_val in zip(X.ravel(), Y.ravel(), Z.ravel()):
             PH.rho_mass(),
             PH.phases[1].rho_mass(),
             PH.phases[0].rho_mass(),
-            S_l(PH.rho_mass(), PH.phases[1].rho_mass(), PH.phases[0].rho_mass()),
-            1.0 - S_l(PH.rho_mass(), PH.phases[1].rho_mass(), PH.phases[0].rho_mass()),
+            PH.phases[1].beta_volume,
+            PH.phases[0].beta_volume,
+            # S_l(PH.V(), PH.phases[1].V(), PH.phases[0].V()),
+            # 1.0 - S_l(PH.V(), PH.phases[1].V(), PH.phases[0].V()),
             PH.T,
             0.0,
             0.0,
@@ -183,6 +187,39 @@ for field in requested_fields:
 
 gradients = {}
 for field in requested_fields:
+
+    # # case 1: smooths scalar field and compute gradients
+    # if field in fields_to_smooth:
+    #     field_data = xhp_space.point_data[field]
+    #     field_sigma = 0.0
+    #     if not np.isclose(np.linalg.norm(field_data),0.0):
+    #         field_sigma = 0.25 * np.pi * np.std(field_data) / np.max(field_data)
+    #     smooth_field_data = gaussian_filter(field_data, sigma=field_sigma)
+    #     xhp_space.point_data[field] = smooth_field_data
+    #
+    # grad_field = xhp_space.compute_derivative(field, gradient=True)
+    # gradients[field] = grad_field["gradient"]
+    #
+    # if field in fields_to_smooth:
+    #     xhp_space.point_data[field] = field_data
+
+    # case 2: smooths computed gradients
+    # grad_field = xhp_space.compute_derivative(field, gradient=True)
+    # if field in fields_to_smooth:
+    #     for d in range(3):
+    #         field_sigma = 0.0
+    #         field_data = xhp_space.point_data[field]
+    #         constant_field = np.isclose(np.linalg.norm(field_data), 0.0)
+    #         constant_field_der = np.isclose(np.linalg.norm(grad_field["gradient"][:,d]), 0.0)
+    #         if not (constant_field or constant_field_der):
+    #             field_sigma = np.pi * np.std(field_data) / np.max(field_data)
+    #         smooth_field_data = gaussian_filter(grad_field["gradient"][:,d], sigma=field_sigma)
+    #         grad_field["gradient"][:,d] = grad_field["gradient"][:,d]
+    #     gradients[field] = grad_field["gradient"]
+    # else:
+    #     gradients[field] = grad_field["gradient"]
+
+    # case 3: no smoothing
     grad_field = xhp_space.compute_derivative(field, gradient=True)
     gradients[field] = grad_field["gradient"]
 

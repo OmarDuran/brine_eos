@@ -10,7 +10,7 @@ import os
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
-level = 2
+level = 0
 file_name = 'XHP_l'+str(level)+'_iapws_modified.vtk'
 brine_sampler_phz = VTKSampler(file_name)
 brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
@@ -24,7 +24,7 @@ gas = IAPWS95Gas(T=T_ref, P=P_ref, zs=[1])
 flasher = FlashPureVLS(iapws_constants, iapws_correlations, gas, [liquid], [])
 PT = flasher.flash(P=1e7, T=573.15)
 
-H_mass_vals = np.logspace(np.log10(1.0), np.log10(2.8), 30) # [MJ/Kg]
+H_mass_vals = np.logspace(np.log10(1.0), np.log10(4.0), 30) # [MJ/Kg]
 P_vals = np.logspace(np.log10(1.1), np.log10(20.0), 30) # [MPa]
 
 def plot_variable(data, variable_name, title):

@@ -16,10 +16,9 @@ short_hand_name_map = {
 
 # The parametric space (z,H,P) in the format: var_min / var_increment / var_max
 parametric_space = {
-    0: "0.001/0.001/0.00201/100/25.0/3100/6/0.25/40",
-    # 0: "0.001/0.001/0.00201/100/12.5/3100/6/0.125/40",
-    # 1: "0.00001/0.001/0.0011/100/10.0/3100/6/1.0/200",
-    # 2: "0.00001/0.001/0.0011/100/5.0/3100/6/0.5/200",
+    0: "0.00001/0.00001/0.0000201/6.25/25.0/3100/6/0.25/40",
+    1: "0.00001/0.00001/0.0000201/6.25/12.05/3100/6/0.125/40",
+    2: "0.00001/0.00001/0.0000201/6.25/6.25/3100/6/0.0625/40",
 }
 
 try:
@@ -49,17 +48,10 @@ finally:
 
         gradients = {}
         for field in requested_fields:
-            if field in fields_to_smooth:
-                field_data = xhp_space.point_data[field]
-                field_sigma = 0.001 * np.mean(field_data)
-                smooth_field_data = gaussian_filter(field_data, sigma=field_sigma)
-                xhp_space.point_data[field] = smooth_field_data
-
+            if field in ['Xv', 'Xl',  'S_h']:
+                xhp_space.point_data[field] *= 0.0
             grad_field = xhp_space.compute_derivative(field, gradient=True)
             gradients[field] = grad_field["gradient"]
-
-            if field in fields_to_smooth:
-                xhp_space.point_data[field] = field_data
 
         for field in requested_fields:
             xhp_space.point_data.set_vectors(gradients[field], "grad_" + field)
