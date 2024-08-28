@@ -11,7 +11,7 @@ from water_utils import fig_5_draw_and_save_comparison
 from water_utils import fig_6_load_and_project_reference_data
 from water_utils import fig_6_draw_and_save_comparison
 
-level = 0
+level = 2
 file_name = 'XHP_l'+str(level)+'_modified_low_salt_content.vtk'
 brine_sampler_phz = VTKSampler(file_name)
 # z: overall composition [-]
