@@ -188,37 +188,6 @@ def compute_gradients_and_save_vtk(level, mesh):
 
     gradients = {}
     for field in requested_fields:
-        # # case 1: smooths scalar field and compute gradients
-        # if field in fields_to_smooth:
-        #     field_data = xhp_space.point_data[field]
-        #     field_sigma = 0.0
-        #     if not np.isclose(np.linalg.norm(field_data),0.0):
-        #         field_sigma = 0.25 * np.pi * np.std(field_data) / np.max(field_data)
-        #     smooth_field_data = gaussian_filter(field_data, sigma=field_sigma)
-        #     xhp_space.point_data[field] = smooth_field_data
-        #
-        # grad_field = xhp_space.compute_derivative(field, gradient=True)
-        # gradients[field] = grad_field["gradient"]
-        #
-        # if field in fields_to_smooth:
-        #     xhp_space.point_data[field] = field_data
-
-        # case 2: smooths computed gradients
-        # grad_field = xhp_space.compute_derivative(field, gradient=True)
-        # if field in fields_to_smooth:
-        #     for d in range(3):
-        #         field_sigma = 0.0
-        #         field_data = xhp_space.point_data[field]
-        #         constant_field = np.isclose(np.linalg.norm(field_data), 0.0)
-        #         constant_field_der = np.isclose(np.linalg.norm(grad_field["gradient"][:,d]), 0.0)
-        #         if not (constant_field or constant_field_der):
-        #             field_sigma = np.pi * np.std(field_data) / np.max(field_data)
-        #         smooth_field_data = gaussian_filter(grad_field["gradient"][:,d], sigma=field_sigma)
-        #         grad_field["gradient"][:,d] = grad_field["gradient"][:,d]
-        #     gradients[field] = grad_field["gradient"]
-        # else:
-        #     gradients[field] = grad_field["gradient"]
-
         # case 3: no smoothing
         grad_field = xhp_space.compute_derivative(field, gradient=True)
         gradients[field] = grad_field["gradient"]
@@ -229,6 +198,127 @@ def compute_gradients_and_save_vtk(level, mesh):
     xhp_space.save(file_name, binary=True)
     te = time.time()
     print("Computing gradients on requested fields: Elapsed time: ", te - tb)
+
+def fig_4A_load_and_project_reference_data(xc):
+
+    # doi: 10.1111/gfl.12080
+    file_prefix = 'verification_pure_water/reference_data/'
+    p_data = np.genfromtxt(file_prefix + 'fig_4a_pressure.csv', delimiter=',', skip_header=1)
+    t_data = np.genfromtxt(file_prefix+ 'fig_4a_temperature.csv', delimiter=',', skip_header=1)
+
+    t_data[:, 1] += 273.15
+    p_proj = np.interp(xc, p_data[:, 0], p_data[:, 1])
+    t_proj = np.interp(xc, t_data[:, 0], t_data[:, 1])
+
+    flasher, liquid, gas, MW_H2O = instanciate_flasher()
+
+    h_data = []
+    for i, pair in enumerate(zip(p_proj, t_proj)):
+        PT = flasher.flash(P=pair[0] * 1.0e6, T=pair[1])
+        h_data.append(PT.H_mass() * 1.0e-6)
+    h_proj = np.array(h_data)
+    return p_proj, h_proj, t_proj
+
+def fig_4A_draw_and_save_comparison(xc, T_proj,T_vtk,H_proj,H_vtk):
+    # plot the data
+    file_prefix = 'verification_pure_water/'
+    figure_data = {
+        'T': (file_prefix + 'figure_4a_temperature_at_250_years.png', 'T - Fig. AA P. WEIS (2014)', 'T - VTKsample + GEOMAR'),
+        'H': (file_prefix + 'figure_4a_enthalpy_at_250_years.png', 'H - Fig. AA P. WEIS (2014)', 'H - VTKsample + GEOMAR'),
+    }
+    fields_data = {
+        'T': (T_proj,T_vtk),
+        'H': (H_proj,H_vtk),
+    }
+
+    for item in fields_data.items():
+        field, data = item
+        file_name, label_ref, label_vtk = figure_data[field]
+        y1 = data[0]
+        y2 = data[1]
+
+        l2_norm = np.linalg.norm((data[0] - data[1])) / np.linalg.norm(data[0])
+
+        plt.plot(xc, y1, label=label_ref)
+        plt.plot(xc, y2, label=label_vtk, linestyle='--')
+
+        plt.xlabel('Distance [Km]')
+        plt.title('Relative l2_norm = ' + str(l2_norm))
+        plt.legend()
+        plt.savefig(file_name)
+        plt.clf()
+
+def fig_4E_load_and_project_reference_data(xc):
+
+    # doi: 10.1111/gfl.12080
+    file_prefix = 'verification_pure_water/reference_data/'
+    p_data = np.genfromtxt(file_prefix + 'fig_4e_pressure.csv', delimiter=',', skip_header=1)
+    t_data = np.genfromtxt(file_prefix+ 'fig_4e_temperature.csv', delimiter=',', skip_header=1)
+
+    t_data[:, 1] += 273.15
+    p_proj = np.interp(xc, p_data[:, 0], p_data[:, 1])
+    t_proj = np.interp(xc, t_data[:, 0], t_data[:, 1])
+
+    flasher, liquid, gas, MW_H2O = instanciate_flasher()
+
+    h_data = []
+    for i, pair in enumerate(zip(p_proj, t_proj)):
+        PT = flasher.flash(P=pair[0] * 1.0e6, T=pair[1])
+        h_data.append(PT.H_mass() * 1.0e-6)
+    h_proj = np.array(h_data)
+    return p_proj, h_proj, t_proj
+
+def fig_4E_draw_and_save_comparison(xc, T_proj,T_vtk,H_proj,H_vtk):
+    # plot the data
+    file_prefix = 'verification_pure_water/'
+    figure_data = {
+        'T': (file_prefix + 'figure_4e_temperature_at_1500_years.png', 'T - Fig. 4E P. WEIS (2014)', 'T - VTKsample + GEOMAR'),
+        'H': (file_prefix + 'figure_4e_enthalpy_at_1500_years.png', 'H - Fig. 4E P. WEIS (2014)', 'H - VTKsample + GEOMAR'),
+    }
+    fields_data = {
+        'T': (T_proj,T_vtk),
+        'H': (H_proj,H_vtk),
+    }
+
+    for item in fields_data.items():
+        field, data = item
+        file_name, label_ref, label_vtk = figure_data[field]
+        y1 = data[0]
+        y2 = data[1]
+
+        l2_norm = np.linalg.norm((data[0] - data[1])) / np.linalg.norm(data[0])
+
+        plt.plot(xc, y1, label=label_ref)
+        plt.plot(xc, y2, label=label_vtk, linestyle='--')
+
+        plt.xlabel('Distance [Km]')
+        plt.title('Relative l2_norm = ' + str(l2_norm))
+        plt.legend()
+        plt.savefig(file_name)
+        plt.clf()
+
+def __bisection(flasher, p, s, tol=1e-8, max_iter=1000):
+    a = 0.0
+    b = 1.0
+
+    def func(p, s, v):
+        PV = flasher.flash(P=p*1.0e6, VF=v)
+        assert len(PV.betas_volume) == 2
+        res = s - PV.betas_volume[0]
+        return res
+
+    if func(p, s, a) * func(p, s, b) >= 0:
+        raise ValueError("f(a) and f(b) must have opposite signs")
+
+    for _ in range(max_iter):
+        c = (a + b) / 2
+        if abs(func(p, s, c)) < tol or (b - a) / 2 < tol:
+            return c
+        elif func(p, s, c) * func(p, s, a) < 0:
+            b = c
+        else:
+            a = c
+    raise RuntimeError("Maximum iterations exceeded")
 
 def fig_5_load_and_project_reference_data(xc):
 
@@ -246,29 +336,6 @@ def fig_5_load_and_project_reference_data(xc):
 
     flasher, liquid, gas, MW_H2O = instanciate_flasher()
 
-    def bisection(p, s, tol=1e-8, max_iter=1000):
-        a = 0.0
-        b = 1.0
-
-        def func(p, s, v):
-            PV = flasher.flash(P=p*1.0e6, VF=v)
-            assert len(PV.betas_volume) == 2
-            res = s - PV.betas_volume[0]
-            return res
-
-        if func(p, s, a) * func(p, s, b) >= 0:
-            raise ValueError("f(a) and f(b) must have opposite signs")
-
-        for _ in range(max_iter):
-            c = (a + b) / 2
-            if abs(func(p, s, c)) < tol or (b - a) / 2 < tol:
-                return c
-            elif func(p, s, c) * func(p, s, a) < 0:
-                b = c
-            else:
-                a = c
-        raise RuntimeError("Maximum iterations exceeded")
-
     h_data = []
     for i, pair in enumerate(zip(p_proj, t_proj)):
         s_v = 1.0 - s_proj[i]
@@ -276,7 +343,7 @@ def fig_5_load_and_project_reference_data(xc):
             PT = flasher.flash(P=pair[0]*1.0e6, T=pair[1])
             h_data.append(PT.H_mass()*1.0e-6)
         else:
-            vf = bisection(pair[0], s_v)
+            vf = __bisection(flasher, pair[0], s_v)
             PT = flasher.flash(P=pair[0]*1.0e6, VF=vf)
             h_data.append(PT.H_mass()*1.0e-6)
     h_proj = np.array(h_data)
@@ -329,29 +396,6 @@ def fig_6_load_and_project_reference_data(xc):
 
     flasher, liquid, gas, MW_H2O = instanciate_flasher()
 
-    def bisection(p, s, tol=1e-8, max_iter=1000):
-        a = 0.0
-        b = 1.0
-
-        def func(p, s, v):
-            PV = flasher.flash(P=p*1.0e6, VF=v)
-            assert len(PV.betas_volume) == 2
-            res = s - PV.betas_volume[0]
-            return res
-
-        if func(p, s, a) * func(p, s, b) >= 0:
-            raise ValueError("f(a) and f(b) must have opposite signs")
-
-        for _ in range(max_iter):
-            c = (a + b) / 2
-            if abs(func(p, s, c)) < tol or (b - a) / 2 < tol:
-                return c
-            elif func(p, s, c) * func(p, s, a) < 0:
-                b = c
-            else:
-                a = c
-        raise RuntimeError("Maximum iterations exceeded")
-
     h_data = []
     for i, pair in enumerate(zip(p_proj, t_proj)):
         s_v = 1.0 - s_proj[i]
@@ -359,7 +403,7 @@ def fig_6_load_and_project_reference_data(xc):
             PT = flasher.flash(P=pair[0]*1.0e6, T=pair[1])
             h_data.append(PT.H_mass()*1.0e-6)
         else:
-            vf = bisection(pair[0], s_v)
+            vf = __bisection(flasher, pair[0], s_v)
             PT = flasher.flash(P=pair[0]*1.0e6, VF=vf)
             h_data.append(PT.H_mass()*1.0e-6)
     h_proj = np.array(h_data)
