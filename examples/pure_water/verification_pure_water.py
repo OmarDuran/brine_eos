@@ -15,7 +15,7 @@ if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
 
-level = 1
+level = 2
 file_name = 'XHP_l'+str(level)+'_modified_iapws.vtk'
 water_sampler_phz = VTKSampler(file_name)
 # z: overall composition [-]
