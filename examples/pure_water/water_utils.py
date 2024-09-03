@@ -1,6 +1,8 @@
 import time
 import numpy as np
 import pyvista as pv
+import gmsh
+import sys
 import meshio
 from globals import requested_fields
 from thermo import FlashPureVLS, IAPWS95Liquid, IAPWS95Gas, iapws_constants, iapws_correlations
@@ -26,10 +28,35 @@ def compute_flasher_data(points):
     # Density plots
     n_data = 13
     flasher_data = np.empty((0, n_data), float)
+    counter = 0
     for z_val, H_val, P_val in zip(X, Y, Z):
-        PH = flasher.flash(P=P_val * 1e6, H=H_val * MW_H2O * 1.0e3)
-        if PH.phase_count == 1:
-            if PH.phase == 'L':
+        print('ip: ', counter)
+        print('(H_val, P_val): ', (H_val, P_val))
+        liquid_q = False
+        vapor_q = False
+        try:
+            PH = flasher.flash(P=P_val * 1e6, H=H_val * MW_H2O * 1.0e3)
+        except:
+            H_spec = H_val * MW_H2O * 1.0e3
+            HV_liquid = flasher.flash(P=P_val * 1e6, VF=0.0)
+            HV_vapor = flasher.flash(P=P_val * 1e6, VF=1.0)
+            if np.isclose(H_spec,HV_liquid.H()):
+                PH = HV_liquid
+                liquid_q = True
+            elif np.isclose(H_spec,HV_vapor.H()):
+                PH = HV_vapor
+                vapor_q = True
+            else:
+                raise ValueError('compute_flasher_data:: Unable to compute thermodynamic state.')
+        counter +=1
+        two_phase_data = len(PH.betas_mass) == 2
+        if two_phase_data:
+            if np.isclose(PH.betas_mass[0], 0.0):
+                liquid_q = True
+            else:
+                vapor_q = True
+        if len(PH.betas_mass) == 1:
+            if PH.phase == 'L' or liquid_q:
                 data = [
                     PH.H_mass() * H_scale,
                     PH.H_mass() * H_scale,
@@ -42,8 +69,8 @@ def compute_flasher_data(points):
                     PH.T,
                     0.0,
                     0.0,
-                    PH.kinematic_viscosity(),
-                    PH.kinematic_viscosity(),
+                    PH.mu(),
+                    PH.mu(),
                 ]
                 flasher_data = np.append(flasher_data, np.array([data]), axis=0)
             else:
@@ -59,10 +86,44 @@ def compute_flasher_data(points):
                     PH.T,
                     0.0,
                     0.0,
-                    PH.kinematic_viscosity(),
-                    PH.kinematic_viscosity(),
+                    PH.mu(),
+                    PH.mu(),
                 ]
                 flasher_data = np.append(flasher_data, np.array([data]), axis=0)
+        elif two_phase_data and (liquid_q or vapor_q):
+            if liquid_q:
+                data = [
+                    PH.H_mass() * H_scale,
+                    PH.H_mass() * H_scale,
+                    PH.H_mass() * H_scale,
+                    PH.rho_mass(),
+                    PH.rho_mass(),
+                    PH.rho_mass(),
+                    1.0,
+                    0.0,
+                    PH.T,
+                    0.0,
+                    0.0,
+                    PH.mu(),
+                    PH.mu(),
+                ]
+            else:
+                data = [
+                    PH.H_mass() * H_scale,
+                    PH.H_mass() * H_scale,
+                    PH.H_mass() * H_scale,
+                    PH.rho_mass(),
+                    PH.rho_mass(),
+                    PH.rho_mass(),
+                    0.0,
+                    1.0,
+                    PH.T,
+                    0.0,
+                    0.0,
+                    PH.mu(),
+                    PH.mu(),
+                ]
+            flasher_data = np.append(flasher_data, np.array([data]), axis=0)
         else:
             data = [
                 PH.H_mass() * H_scale,
@@ -76,8 +137,8 @@ def compute_flasher_data(points):
                 PH.T,
                 0.0,
                 0.0,
-                PH.phases[1].kinematic_viscosity(),
-                PH.phases[0].kinematic_viscosity(),
+                PH.phases[1].mu(),
+                PH.phases[0].mu(),
             ]
             flasher_data = np.append(flasher_data, np.array([data]), axis=0)
     return flasher_data
@@ -88,7 +149,7 @@ def generate_cartesian_grid(level, H_range, P_range):
     ref_data = {
         0: (100, 100),
         1: (200, 200),
-        2: (300, 300),
+        2: (400, 400),
     }
 
     H_vals = np.linspace(H_range[0], H_range[1], ref_data[level][0])  # [KJ/Kg]
@@ -129,6 +190,114 @@ def generate_cartesian_grid(level, H_range, P_range):
     mesh = meshio.Mesh(points, [("hexahedron", hexahedrons)])
     return mesh
 
+def generate_simplex_grid_pure_water(level, H_range, P_range):
+
+    flasher, liquid, gas, MW_H2O = instanciate_flasher()
+
+    lc_scale = 1.0
+    ref_data = {
+        0: (5, 200),
+        1: (100, 400),
+        2: (200, 800),
+    }
+
+    H_vals = np.linspace(H_range[0], H_range[1], ref_data[level][0])  # [KJ/Kg]
+    P_vals = np.linspace(P_range[0], P_range[1], ref_data[level][1])  # [MPa]
+
+    H_scale = 1.0e-6
+    H_vapor = []
+    H_liquid = []
+    for P_val in P_vals:
+        PL = flasher.flash(P=P_val * 1.0e6, VF=0.0, zs=[1.0])
+        PV = flasher.flash(P=P_val * 1.0e6, VF=1.0, zs=[1.0])
+        H_liquid.append(PL.H_mass() * H_scale)
+        H_vapor.append(PV.H_mass() * H_scale)
+
+    # Define points for the polylines inside the rectangular domain
+    curve_liquid = np.vstack([ np.zeros_like(P_vals), H_liquid, P_vals]).T
+    curve_vapor = np.vstack([ np.zeros_like(P_vals), H_vapor, P_vals]).T
+
+    # Initialize Gmsh
+    gmsh.initialize()
+    gmsh.model.add("IAPWS simplex polyline Enthalpy-Pressure space")
+
+    lc = np.abs((H_range[1] - H_range[0]) / ref_data[level][0])
+
+    # Define the points for the rectangular domain
+    p1 = gmsh.model.occ.addPoint(0, H_range[0], P_range[0], lc)
+    p2 = gmsh.model.occ.addPoint(0, H_range[1], P_range[0], lc)
+    p3 = gmsh.model.occ.addPoint(0, H_range[1], P_range[1], lc)
+    p4 = gmsh.model.occ.addPoint(0, H_range[0], P_range[1], lc)
+
+    # points from the phase boundary
+    p5 = gmsh.model.occ.addPoint(curve_liquid[0][0], curve_liquid[0][1],
+                                 curve_liquid[0][2], lc)
+    p6 = gmsh.model.occ.addPoint(curve_vapor[0][0], curve_vapor[0][1],
+                                 curve_vapor[0][2], lc)
+    p7 = gmsh.model.occ.addPoint(curve_liquid[-1][0], curve_liquid[-1][1],
+                                 curve_liquid[-1][2], lc)
+    p8 = gmsh.model.occ.addPoint(curve_vapor[-1][0], curve_vapor[-1][1],
+                                 curve_vapor[-1][2], lc)
+
+
+    # Define the lines for the rectangular domain including segments of intersections
+    l1 = gmsh.model.occ.addLine(p1, p5)
+    l2 = gmsh.model.occ.addLine(p5, p6)
+    l3 = gmsh.model.occ.addLine(p6, p2)
+    l4 = gmsh.model.occ.addLine(p2, p3)
+    l5 = gmsh.model.occ.addLine(p3, p8)
+    l6 = gmsh.model.occ.addLine(p8, p7)
+    l7 = gmsh.model.occ.addLine(p7, p4)
+    l8 = gmsh.model.occ.addLine(p4, p1)
+
+    # Create a curve loop and a surface for the rectangular domain
+    rect_loop = gmsh.model.occ.addCurveLoop([l1, l2, l3, l4, l5, l6, l7, l8])
+    rect_surface = gmsh.model.occ.addPlaneSurface([rect_loop])
+
+    # Add points and curves for liquid
+    curve_liquid_ids = []
+    for x, y, z in curve_liquid:
+        point_id = gmsh.model.occ.addPoint(x, y, z, lc_scale * lc)
+        curve_liquid_ids.append(point_id)
+
+    curve_liquid_ids[0] = p5
+    curve_liquid_ids[-1] = p7
+    # Create lines between consecutive points to form the polyline
+    curve_liquid_lines = []
+    for i in range(len(curve_liquid_ids) - 1):
+        line_id = gmsh.model.occ.addLine(curve_liquid_ids[i], curve_liquid_ids[i + 1])
+        curve_liquid_lines.append(line_id)
+    gmsh.model.occ.synchronize()
+    gmsh.model.mesh.embed(1, curve_liquid_lines, 2, rect_surface)
+
+    # Add points and curves for liquid
+    curve_vapor_ids = []
+    for x, y, z in curve_vapor:
+        point_id = gmsh.model.occ.addPoint(x, y, z, lc_scale * lc)
+        curve_vapor_ids.append(point_id)
+    curve_vapor_ids[0] = p6
+    curve_vapor_ids[-1] = p8
+    # Create lines between consecutive points to form the polyline
+    curve_vapor_lines = []
+    for i in range(len(curve_vapor_ids) - 1):
+        line_id = gmsh.model.occ.addLine(curve_vapor_ids[i], curve_vapor_ids[i + 1])
+        curve_vapor_lines.append(line_id)
+    gmsh.model.occ.synchronize()
+    gmsh.model.mesh.embed(1, curve_vapor_lines, 2, rect_surface)
+    gmsh.model.occ.synchronize()
+
+    # gmsh.model.addPhysicalGroup(2, [rect_surface], name="Rectangular Surface")
+    # gmsh.model.addPhysicalGroup(1, curve_liquid_ids, name="Liquid boundary")
+    # gmsh.model.addPhysicalGroup(1, curve_vapor_ids, name="Vapor boundary")
+    gmsh.model.mesh.generate(2)
+    gmsh.write("polylines_in_rectangle.msh")
+    gmsh.finalize()
+
+    mesh = meshio.read("polylines_in_rectangle.msh")
+    mesh.cell_sets.pop('gmsh:bounding_entities', None)
+    mesh.cell_data.pop('gmsh:geometrical', None)
+    return mesh
+
 def assign_point_data_with_flasher_data(mesh, flasher_data):
     points_s = mesh.points.shape
     flasher_data_s = flasher_data.shape
@@ -148,6 +317,9 @@ def assign_point_data_with_flasher_data(mesh, flasher_data):
         'mu_l': 11,
         'mu_v': 12,
     }
+
+    mesh.point_data.pop('gmsh:dim_tags', None)
+
     mesh.point_data['H'] = flasher_data[:, fields['H']]
     mesh.point_data['H_l'] = flasher_data[:, fields['H_l']]
     mesh.point_data['H_v'] = flasher_data[:, fields['H_v']]
