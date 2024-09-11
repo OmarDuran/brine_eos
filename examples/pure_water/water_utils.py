@@ -30,10 +30,7 @@ def compute_flasher_data(points):
     flasher_data = np.empty((0, n_data), float)
     counter = 0
     for z_val, H_val, P_val in zip(X, Y, Z):
-        print('ip: ', counter)
-        print('(H_val, P_val): ', (H_val, P_val))
         liquid_q = False
-        vapor_q = False
         try:
             PH = flasher.flash(P=P_val * 1e6, H=H_val * MW_H2O * 1.0e3)
         except:
@@ -45,18 +42,16 @@ def compute_flasher_data(points):
                 liquid_q = True
             elif np.isclose(H_spec,HV_vapor.H()):
                 PH = HV_vapor
-                vapor_q = True
             else:
                 raise ValueError('compute_flasher_data:: Unable to compute thermodynamic state.')
-        counter +=1
         two_phase_data = len(PH.betas_mass) == 2
+        true_two_phase_state = two_phase_data and not np.any(np.isclose(PH.betas_mass, 0.0))
         if two_phase_data:
-            if np.isclose(PH.betas_mass[0], 0.0):
+            if np.isclose(PH.betas_mass[1], 1.0):
                 liquid_q = True
-            else:
-                vapor_q = True
-        if len(PH.betas_mass) == 1:
-            if PH.phase == 'L' or liquid_q:
+        counter +=1
+        if not true_two_phase_state:
+            if liquid_q or PH.phase == 'L':
                 data = [
                     PH.H_mass() * H_scale,
                     PH.H_mass() * H_scale,
@@ -90,40 +85,6 @@ def compute_flasher_data(points):
                     PH.mu(),
                 ]
                 flasher_data = np.append(flasher_data, np.array([data]), axis=0)
-        elif two_phase_data and (liquid_q or vapor_q):
-            if liquid_q:
-                data = [
-                    PH.H_mass() * H_scale,
-                    PH.H_mass() * H_scale,
-                    PH.H_mass() * H_scale,
-                    PH.rho_mass(),
-                    PH.rho_mass(),
-                    PH.rho_mass(),
-                    1.0,
-                    0.0,
-                    PH.T,
-                    0.0,
-                    0.0,
-                    PH.mu(),
-                    PH.mu(),
-                ]
-            else:
-                data = [
-                    PH.H_mass() * H_scale,
-                    PH.H_mass() * H_scale,
-                    PH.H_mass() * H_scale,
-                    PH.rho_mass(),
-                    PH.rho_mass(),
-                    PH.rho_mass(),
-                    0.0,
-                    1.0,
-                    PH.T,
-                    0.0,
-                    0.0,
-                    PH.mu(),
-                    PH.mu(),
-                ]
-            flasher_data = np.append(flasher_data, np.array([data]), axis=0)
         else:
             data = [
                 PH.H_mass() * H_scale,
@@ -190,35 +151,39 @@ def generate_cartesian_grid(level, H_range, P_range):
     mesh = meshio.Mesh(points, [("hexahedron", hexahedrons)])
     return mesh
 
-def generate_simplex_grid_pure_water(level, H_range, P_range):
+def generate_simplex_grid(level, H_range, P_range):
 
     flasher, liquid, gas, MW_H2O = instanciate_flasher()
 
-    lc_scale = 1.0
     ref_data = {
-        0: (5, 200),
-        1: (100, 400),
-        2: (200, 800),
+        0: (5, 250, 50),
+        1: (10, 500, 100),
+        2: (15, 1000, 200),
     }
 
     H_vals = np.linspace(H_range[0], H_range[1], ref_data[level][0])  # [KJ/Kg]
-    P_vals = np.linspace(P_range[0], P_range[1], ref_data[level][1])  # [MPa]
+    P_vals_liquid = np.linspace(P_range[0], P_range[1], ref_data[level][1])  # [MPa]
+    P_vals_vapor = np.linspace(P_range[0], P_range[1], ref_data[level][2])# [MPa]
+    VF_vals = np.linspace(0.0, 1.0, 15) # [-]
 
     H_scale = 1.0e-6
     H_vapor = []
     H_liquid = []
-    for P_val in P_vals:
+    for P_val in P_vals_liquid:
         PL = flasher.flash(P=P_val * 1.0e6, VF=0.0, zs=[1.0])
-        PV = flasher.flash(P=P_val * 1.0e6, VF=1.0, zs=[1.0])
         H_liquid.append(PL.H_mass() * H_scale)
+
+    for P_val in P_vals_vapor:
+        PV = flasher.flash(P=P_val * 1.0e6, VF=1.0, zs=[1.0])
         H_vapor.append(PV.H_mass() * H_scale)
 
     # Define points for the polylines inside the rectangular domain
-    curve_liquid = np.vstack([ np.zeros_like(P_vals), H_liquid, P_vals]).T
-    curve_vapor = np.vstack([ np.zeros_like(P_vals), H_vapor, P_vals]).T
+    curve_liquid = np.vstack([ np.zeros_like(P_vals_liquid), H_liquid, P_vals_liquid]).T
+    curve_vapor = np.vstack([ np.zeros_like(P_vals_vapor), H_vapor, P_vals_vapor]).T
 
     # Initialize Gmsh
     gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)
     gmsh.model.add("IAPWS simplex polyline Enthalpy-Pressure space")
 
     lc = np.abs((H_range[1] - H_range[0]) / ref_data[level][0])
@@ -257,7 +222,7 @@ def generate_simplex_grid_pure_water(level, H_range, P_range):
     # Add points and curves for liquid
     curve_liquid_ids = []
     for x, y, z in curve_liquid:
-        point_id = gmsh.model.occ.addPoint(x, y, z, lc_scale * lc)
+        point_id = gmsh.model.occ.addPoint(x, y, z)
         curve_liquid_ids.append(point_id)
 
     curve_liquid_ids[0] = p5
@@ -273,7 +238,7 @@ def generate_simplex_grid_pure_water(level, H_range, P_range):
     # Add points and curves for liquid
     curve_vapor_ids = []
     for x, y, z in curve_vapor:
-        point_id = gmsh.model.occ.addPoint(x, y, z, lc_scale * lc)
+        point_id = gmsh.model.occ.addPoint(x, y, z)
         curve_vapor_ids.append(point_id)
     curve_vapor_ids[0] = p6
     curve_vapor_ids[-1] = p8
@@ -284,8 +249,25 @@ def generate_simplex_grid_pure_water(level, H_range, P_range):
         curve_vapor_lines.append(line_id)
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.embed(1, curve_vapor_lines, 2, rect_surface)
-    gmsh.model.occ.synchronize()
 
+
+    # Define a distance field to refine mesh around the circular hole
+    field_id = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(field_id, "CurvesList", curve_liquid_lines)
+    gmsh.model.mesh.field.setNumber(field_id, "NumPointsPerCurve", 50)
+
+    # Define a threshold field to specify the mesh size near the curve
+    thresh_field = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(thresh_field, "InField", field_id)
+    gmsh.model.mesh.field.setNumber(thresh_field, "SizeMin", 0.0025)
+    gmsh.model.mesh.field.setNumber(thresh_field, "SizeMax", lc)
+    gmsh.model.mesh.field.setNumber(thresh_field, "DistMin", 0.0025)
+    gmsh.model.mesh.field.setNumber(thresh_field, "DistMax", 3.0)
+
+    # Set this field as the background mesh field
+    gmsh.model.mesh.field.setAsBackgroundMesh(thresh_field)
+
+    gmsh.model.occ.synchronize()
     # gmsh.model.addPhysicalGroup(2, [rect_surface], name="Rectangular Surface")
     # gmsh.model.addPhysicalGroup(1, curve_liquid_ids, name="Liquid boundary")
     # gmsh.model.addPhysicalGroup(1, curve_vapor_ids, name="Vapor boundary")
@@ -296,6 +278,17 @@ def generate_simplex_grid_pure_water(level, H_range, P_range):
     mesh = meshio.read("polylines_in_rectangle.msh")
     mesh.cell_sets.pop('gmsh:bounding_entities', None)
     mesh.cell_data.pop('gmsh:geometrical', None)
+    mesh.point_data.pop('gmsh:dim_tags', None)
+    mesh.cells_dict.pop('line', None)
+
+    # Filter out the line elements
+    filtered_cells = []
+    for cell_block in mesh.cells:
+        if cell_block.type != "line" and cell_block.type != "vertex":
+            filtered_cells.append(cell_block)
+
+    # Update the mesh cells to only contain the filtered elements
+    mesh.cells = filtered_cells
     return mesh
 
 def assign_point_data_with_flasher_data(mesh, flasher_data):
@@ -340,9 +333,12 @@ def assign_point_data_with_flasher_data(mesh, flasher_data):
     mesh.point_data['mu_l'] = flasher_data[:, fields['mu_l']]
     mesh.point_data['mu_v'] = flasher_data[:, fields['mu_v']]
 
-def compute_gradients_and_save_vtk(level, mesh):
+def compute_gradients_and_save_vtk(level, mesh, simplex_q = False):
     # Save the mesh to a file
-    file_name = 'XHP_l' + str(level) + '_modified_iapws.vtk'
+    suffix = '_cartesian_iapws.vtk'
+    if simplex_q:
+        suffix = '_simplex_iapws.vtk'
+    file_name = 'XHP_l' + str(level) + suffix
 
     meshio.write(file_name, mesh)
     untouched_vtk_file = file_name
