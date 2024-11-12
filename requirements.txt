@@ -1,6 +1,8 @@
 numpy
 requests
 pyvista
+meshio
+gmsh
 black
 pytest
 thermo
