@@ -22,7 +22,7 @@ for level in range(3):
     # Compute phase equilibrium at each mesh point
     flasher_data = compute_flasher_data(mesh.points)
 
-    # # Assign flash fields as point data
+    # Assign flash fields as point data
     assign_point_data_with_flasher_data(mesh, flasher_data)
 
     # Compute gradients and save the data base as vtk
